@@ -57,8 +57,10 @@ const App: React.FC = () => {
                   return;
                 }
                 const newContent = data.content;
-                content += newContent;
-                setCurrentStreamingContent(prev => prev + newContent);
+                if (newContent) {
+                  content += newContent;
+                  setCurrentStreamingContent(content);
+                }
               } catch (e) {
                 console.warn('Failed to parse chunk:', e);
               }
@@ -128,8 +130,10 @@ const App: React.FC = () => {
               }
 
               const newContent = data.content;
-              content += newContent;
-              setCurrentStreamingContent(prev => prev + newContent);
+              if (newContent) {
+                content += newContent;
+                setCurrentStreamingContent(content);
+              }
             } catch (e) {
               console.warn('Failed to parse chunk:', e);
             }
@@ -155,9 +159,52 @@ const App: React.FC = () => {
   };
 
   const formatMessage = (content: string) => {
-    return content.split('\n').map((line, i) => (
-      <div key={i}>{line || <br />}</div>
-    ));
+    return content.split('\n').map((line, i) => {
+      // Handle empty lines
+      if (!line.trim()) {
+        return <br key={i} />;
+      }
+
+      // Handle bullet points
+      if (line.trim().startsWith('- ')) {
+        const bulletContent = line.replace(/^[\s]*-\s*/, '');
+        return (
+          <div key={i} className="bullet-point">
+            <span className="bullet">•</span>
+            <span>{formatInlineMarkdown(bulletContent)}</span>
+          </div>
+        );
+      }
+
+      // Handle numbered lists
+      if (/^\d+\.\s/.test(line.trim())) {
+        const match = line.trim().match(/^(\d+)\.\s(.*)$/);
+        if (match) {
+          return (
+            <div key={i} className="numbered-point">
+              <span className="number">{match[1]}.</span>
+              <span>{formatInlineMarkdown(match[2])}</span>
+            </div>
+          );
+        }
+      }
+
+      // Regular line with inline formatting
+      return <div key={i}>{formatInlineMarkdown(line)}</div>;
+    });
+  };
+
+  const formatInlineMarkdown = (text: string) => {
+    // Split text by ** for bold formatting
+    const parts = text.split(/(\*\*[^*]+\*\*)/);
+
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        const boldText = part.slice(2, -2);
+        return <strong key={index}>{boldText}</strong>;
+      }
+      return part;
+    });
   };
 
   return (

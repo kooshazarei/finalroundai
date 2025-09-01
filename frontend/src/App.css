@@ -72,6 +72,34 @@ body {
   word-wrap: break-word;
 }
 
+.bullet-point {
+  display: flex;
+  align-items: flex-start;
+  margin: 0.25rem 0;
+}
+
+.bullet-point .bullet {
+  color: #667eea;
+  font-weight: bold;
+  margin-right: 0.5rem;
+  margin-top: 0.1rem;
+  min-width: 1rem;
+}
+
+.numbered-point {
+  display: flex;
+  align-items: flex-start;
+  margin: 0.25rem 0;
+}
+
+.numbered-point .number {
+  color: #667eea;
+  font-weight: bold;
+  margin-right: 0.5rem;
+  margin-top: 0.1rem;
+  min-width: 1.5rem;
+}
+
 .message.user .message-content {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
