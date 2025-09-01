@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-compose.override.yml
+
+# Build outputs
+build/
+dist/
+
+# Python specific
+*.egg-info/
+.pytest_cache/
+
+# React specific
+.eslintcache
