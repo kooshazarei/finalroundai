@@ -10,7 +10,7 @@ class ChatMessage(BaseModel):
     """Chat message request model."""
 
     message: str = Field(..., min_length=1, max_length=10000, description="The user's message")
-    prompt_type: str = Field(default="gpt-3.5-turbo", description="Model name to use (e.g., gpt-3.5-turbo, gpt-4)")
+    prompt_type: str = Field(default="gpt-4o", description="Model name to use (e.g., gpt-3.5-turbo, gpt-4, gpt-4o)")
     thread_id: Optional[str] = Field(None, description="Thread ID for conversation context")
     user_id: Optional[str] = Field(None, description="User ID for personalization")
 

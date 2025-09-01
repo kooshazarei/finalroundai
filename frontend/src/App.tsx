@@ -13,14 +13,19 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentStreamingContent, setCurrentStreamingContent] = useState('');
   const [threadId, setThreadId] = useState<string>('');
-  const [userId, setUserId] = useState<string>('user-' + Math.random().toString(36).substr(2, 9));
+  const [userId] = useState<string>('user-' + Math.random().toString(36).substr(2, 9));
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const threadInitializedRef = useRef(false);
 
   // API base URL - use environment variable or fallback to relative path for proxy
   const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
   // Initialize a new thread when component mounts
   useEffect(() => {
+    // Prevent double initialization in React Strict Mode
+    if (threadInitializedRef.current) return;
+    threadInitializedRef.current = true;
+
     const initializeThread = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/chat/thread/new`, {
@@ -39,7 +44,8 @@ const App: React.FC = () => {
     };
 
     initializeThread();
-  }, [API_BASE_URL]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array since we use ref to prevent double execution
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -48,65 +54,14 @@ const App: React.FC = () => {
 
   // Initial welcome message
   useEffect(() => {
-    const loadWelcome = async () => {
-      // Only load welcome message if we have a thread ID
-      if (!threadId) return;
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/welcome`);
-        if (!response.ok) throw new Error('Failed to load welcome');
-
-        const reader = response.body?.getReader();
-        if (!reader) throw new Error('No reader available');
-
-        const decoder = new TextDecoder();
-        let content = '';
-
-        // Start streaming
-        setIsLoading(true);
-        setCurrentStreamingContent('');
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.done) {
-                  setMessages([{ role: 'assistant', content }]);
-                  setCurrentStreamingContent('');
-                  setIsLoading(false);
-                  return;
-                }
-                const newContent = data.content;
-                if (newContent) {
-                  content += newContent;
-                  setCurrentStreamingContent(content);
-                }
-              } catch (e) {
-                console.warn('Failed to parse chunk:', e);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Welcome message error:', error);
-        setMessages([{
-          role: 'assistant',
-          content: "Hello! I'm your AI Chat Assistant. How can I help you today?"
-        }]);
-        setCurrentStreamingContent('');
-        setIsLoading(false);
-      }
-    };
-
-    loadWelcome();
-  }, [API_BASE_URL, threadId]); // Added threadId dependency
+    // Only show welcome message if we have a thread ID and no messages yet
+    if (threadId && messages.length === 0) {
+      setMessages([{
+        role: 'assistant',
+        content: "Hello! I'm your AI Chat Assistant. How can I help you today?"
+      }]);
+    }
+  }, [threadId, messages.length]); // Show welcome when thread is ready and no messages
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading || !threadId) return;
@@ -243,7 +198,10 @@ const App: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setThreadId(data.thread_id);
-        setMessages([]);
+        setMessages([{
+          role: 'assistant',
+          content: "Hello! I'm your AI Chat Assistant. How can I help you today?"
+        }]);
         setCurrentStreamingContent('');
         console.log('Started new conversation:', data.thread_id);
       }
@@ -251,7 +209,10 @@ const App: React.FC = () => {
       console.error('Failed to start new conversation:', error);
       // Fallback to generating a client-side thread ID
       setThreadId('thread-' + Math.random().toString(36).substr(2, 9));
-      setMessages([]);
+      setMessages([{
+        role: 'assistant',
+        content: "Hello! I'm your AI Chat Assistant. How can I help you today?"
+      }]);
       setCurrentStreamingContent('');
     }
   };

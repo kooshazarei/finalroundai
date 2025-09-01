@@ -6,8 +6,6 @@ services:
       - "8000:8000"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - LANGSMITH_PROJECT=${LANGSMITH_PROJECT}
-      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
     volumes:
       - ./backend:/app
       - /app/__pycache__

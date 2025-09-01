@@ -18,7 +18,7 @@ router = APIRouter(tags=["health"])
 async def root():
     """Root endpoint."""
     return {
-        "message": f"{settings.app_name} API is running with LangGraph",
+        "message": f"{settings.app_name} API is running",
         "version": settings.app_version
     }
 
@@ -41,15 +41,11 @@ async def health_check():
         )
 
 
-@router.get("/tracing-status")
-async def tracing_status():
-    """Get LangSmith tracing status."""
-    langsmith_enabled = os.getenv("LANGCHAIN_TRACING_V2") == "true"
-    langsmith_project = os.getenv("LANGCHAIN_PROJECT", "Not set")
-
+@router.get("/status")
+async def api_status():
+    """Get API status."""
     return {
-        "langsmith_tracing_enabled": langsmith_enabled,
-        "langsmith_project": langsmith_project,
-        "langsmith_configured": settings.langsmith_tracing_enabled and bool(settings.langsmith_api_key),
-        "project_name": settings.langsmith_project
+        "api_status": "running",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": settings.app_version
     }

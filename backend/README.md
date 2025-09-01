@@ -1,6 +1,6 @@
 # AI Chat Assistant Backend
 
-A clean, modular FastAPI backend for an AI chat assistant built with LangGraph and OpenAI.
+A clean, modular FastAPI backend for an AI chat assistant built with OpenAI.
 
 ## Project Structure
 
@@ -27,7 +27,7 @@ backend/
 │   │   └── README.md
 │   ├── services/          # Business logic services
 │   │   ├── __init__.py
-│   │   ├── chat_service.py      # LangGraph workflow service
+│   │   ├── llm_service.py       # LLM service
 │   │   ├── openai_service.py    # OpenAI integration
 │   │   └── streaming_service.py # Streaming functionality
 │   └── utils/             # Utility functions
@@ -43,7 +43,6 @@ backend/
 
 - **Clean Architecture**: Modular design with separation of concerns
 - **FastAPI**: Modern, fast web framework with automatic API documentation
-- **LangGraph**: Advanced conversation flow management
 - **OpenAI Integration**: GPT-3.5-turbo for AI responses
 - **Streaming**: Real-time response streaming
 - **Error Handling**: Comprehensive exception handling
