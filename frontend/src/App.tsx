@@ -12,10 +12,34 @@ const App: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentStreamingContent, setCurrentStreamingContent] = useState('');
+  const [threadId, setThreadId] = useState<string>('');
+  const [userId, setUserId] = useState<string>('user-' + Math.random().toString(36).substr(2, 9));
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // API base URL - use environment variable or fallback to relative path for proxy
   const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+
+  // Initialize a new thread when component mounts
+  useEffect(() => {
+    const initializeThread = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/chat/thread/new`, {
+          method: 'POST'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setThreadId(data.thread_id);
+          console.log('Initialized new thread:', data.thread_id);
+        }
+      } catch (error) {
+        console.error('Failed to initialize thread:', error);
+        // Fallback to generating a client-side thread ID
+        setThreadId('thread-' + Math.random().toString(36).substr(2, 9));
+      }
+    };
+
+    initializeThread();
+  }, [API_BASE_URL]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -25,6 +49,9 @@ const App: React.FC = () => {
   // Initial welcome message
   useEffect(() => {
     const loadWelcome = async () => {
+      // Only load welcome message if we have a thread ID
+      if (!threadId) return;
+
       try {
         const response = await fetch(`${API_BASE_URL}/api/welcome`);
         if (!response.ok) throw new Error('Failed to load welcome');
@@ -79,11 +106,10 @@ const App: React.FC = () => {
     };
 
     loadWelcome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [API_BASE_URL, threadId]); // Added threadId dependency
 
   const sendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
+    if (!inputMessage.trim() || isLoading || !threadId) return;
 
     const userMessage: Message = { role: 'user', content: inputMessage };
     setMessages(prev => [...prev, userMessage]);
@@ -97,7 +123,9 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: inputMessage,
-          prompt_type: 'default'
+          prompt_type: 'default',
+          thread_id: threadId,
+          user_id: userId
         }),
       });
 
@@ -207,11 +235,41 @@ const App: React.FC = () => {
     });
   };
 
+  const startNewConversation = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chat/thread/new`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setThreadId(data.thread_id);
+        setMessages([]);
+        setCurrentStreamingContent('');
+        console.log('Started new conversation:', data.thread_id);
+      }
+    } catch (error) {
+      console.error('Failed to start new conversation:', error);
+      // Fallback to generating a client-side thread ID
+      setThreadId('thread-' + Math.random().toString(36).substr(2, 9));
+      setMessages([]);
+      setCurrentStreamingContent('');
+    }
+  };
+
   return (
     <div className="app">
       <div className="chat-container">
         <div className="chat-header">
           <h1>AI Chat Assistant</h1>
+          <div className="chat-controls">
+            <button className="new-conversation-btn" onClick={startNewConversation}>
+              New Conversation
+            </button>
+            <div className="chat-info">
+              <span className="info-item">Thread: {threadId.slice(-8)}</span>
+              <span className="info-item">User: {userId.slice(-6)}</span>
+            </div>
+          </div>
         </div>
 
         <div className="messages-container">

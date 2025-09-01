@@ -28,11 +28,6 @@ class Settings(BaseModel):
         "http://frontend:3000"
     ]
 
-    # OpenAI Settings
-    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
-    openai_model: str = "gpt-4.1"
-    openai_temperature: float = 0.7
-
     class Config:
         env_file = ".env"
 

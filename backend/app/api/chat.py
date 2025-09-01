@@ -5,128 +5,122 @@ Chat API endpoints.
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 import logging
-import json
-
-from ..models import ChatMessage, ChatResponse, PromptsResponse
-from ..services import chat_workflow_service
-from ..core import ChatProcessingError, get_logger
-
-# Import prompt manager from the moved location
-import sys
+from typing import TypedDict, Dict, Any
 import os
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from prompts import prompt_manager
+import json
+import uuid
+import asyncio
+
+from ..models import ChatMessage, ChatResponse
+from ..core import get_logger
+from ..services import get_graph_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api", tags=["chat"])
 
+# Static user ID as requested
+STATIC_USER_ID = "user123"
 
-async def stream_welcome_message():
-    """Stream an AI-generated welcome message."""
+
+@router.post("/chat/thread/new")
+async def create_new_thread():
+    """Create a new chat thread."""
     try:
-        # Use the chat workflow service to generate a personalized welcome message
-        welcome_prompt = "Generate a warm, friendly welcome message for a new user starting a chat session."
-
-        logger.info("Generating AI welcome message")
-
-        # Stream the AI-generated welcome message using the welcome prompt type
-        async for chunk in chat_workflow_service.stream_chat_response(
-            message=welcome_prompt,
-            prompt_type="welcome"
-        ):
-            yield chunk
-
+        thread_id = str(uuid.uuid4())
+        logger.info(f"Created new thread: {thread_id}")
+        return {"thread_id": thread_id, "status": "success"}
     except Exception as e:
-        logger.error(f"Error streaming AI welcome message: {e}")
-        # Fallback to static message if AI generation fails
-        fallback_text = """Hello! 👋 I'm your AI Chat Assistant, and I'm here to help you with any questions or tasks you might have.
-
-I can assist you with:
-• Answering questions on a wide range of topics
-• Helping with creative writing and brainstorming
-• Providing technical guidance and explanations
-• Problem-solving and analysis
-• General conversation and advice
-
-Feel free to ask me anything! What would you like to talk about today?"""
-
-        data = {"content": fallback_text, "done": True}
-        yield f"data: {json.dumps(data)}\n\n"
+        logger.error(f"Error creating new thread: {e}")
+        raise HTTPException(status_code=500, detail=f"Error creating thread: {str(e)}")
 
 
 @router.get("/welcome")
-async def get_welcome():
-    """Stream the welcome message to guide the user."""
-    try:
-        logger.info("Starting welcome message stream")
-        return StreamingResponse(
-            stream_welcome_message(),
-            media_type="text/plain",
-            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
-        )
-    except Exception as e:
-        logger.error(f"Error streaming welcome message: {e}")
-        raise HTTPException(status_code=500, detail="Failed to stream welcome message")
+async def get_welcome_message():
+    """Get streaming welcome message."""
+    async def generate_welcome():
+        welcome_text = "Hello! I'm your AI Chat Assistant. How can I help you today?"
 
+        # Stream the welcome message character by character for demo effect
+        for char in welcome_text:
+            yield f"data: {json.dumps({'content': char, 'done': False})}\n\n"
+            await asyncio.sleep(0.02)  # Small delay for typing effect
 
-@router.post("/chat", response_model=ChatResponse)
-async def chat_with_ai(chat_data: ChatMessage):
-    """Process a chat message and return AI response."""
-    try:
-        logger.info(f"Processing chat message with prompt type: {chat_data.prompt_type}")
+        yield f"data: {json.dumps({'content': '', 'done': True})}\n\n"
 
-        # Process through workflow
-        result = chat_workflow_service.process_chat(
-            message=chat_data.message,
-            prompt_type=chat_data.prompt_type
-        )
-
-        logger.info("Chat message processed successfully")
-        return ChatResponse(
-            response=result["response"],
-            status="success",
-            prompt_type=result["current_prompt_type"]
-        )
-
-    except ChatProcessingError as e:
-        logger.error(f"Chat processing error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        logger.error(f"Unexpected error in chat endpoint: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
+    return StreamingResponse(generate_welcome(), media_type="text/plain")
 
 
 @router.post("/chat/stream")
 async def stream_chat_response(chat_data: ChatMessage):
-    """Process a chat message and stream AI response directly from LLM."""
+    """Stream chat response using LangGraph implementation."""
     try:
-        logger.info(f"Processing streaming chat message with prompt type: {chat_data.prompt_type}")
+        logger.info(f"Processing streaming chat message for user: {chat_data.user_id or STATIC_USER_ID}")
 
-        # Stream response directly from chat service
-        return StreamingResponse(
-            chat_workflow_service.stream_chat_response(
-                message=chat_data.message,
-                prompt_type=chat_data.prompt_type
-            ),
-            media_type="text/plain",
-            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
-        )
+        async def generate_response():
+            try:
+                # Get model name
+                model_name = chat_data.prompt_type
+                if model_name in ["simple", "default"]:
+                    model_name = "gpt-3.5-turbo"
 
-    except ChatProcessingError as e:
-        logger.error(f"Chat processing error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+                # Use graph service to process the message
+                graph_service = get_graph_service()
+                result = await graph_service.process_chat_message(
+                    message=chat_data.message,
+                    model_name=model_name,
+                    session_id=chat_data.thread_id
+                )
+
+                response_text = result.get("response", "")
+
+                # Stream the response character by character
+                for char in response_text:
+                    yield f"data: {json.dumps({'content': char, 'done': False})}\n\n"
+                    await asyncio.sleep(0.01)  # Small delay for streaming effect
+
+                # Send final done signal
+                yield f"data: {json.dumps({'content': '', 'done': True})}\n\n"
+
+            except Exception as e:
+                logger.error(f"Error in graph-based chat: {e}")
+                error_msg = f"Sorry, there was an error processing your message: {str(e)}"
+                yield f"data: {json.dumps({'error': error_msg, 'done': True})}\n\n"
+
+        return StreamingResponse(generate_response(), media_type="text/plain")
+
     except Exception as e:
         logger.error(f"Unexpected error in streaming chat endpoint: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing streaming chat: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
 
 
-@router.get("/prompts", response_model=PromptsResponse)
-async def get_available_prompts():
-    """Get all available prompt types."""
+@router.post("/chat", response_model=ChatResponse)
+async def chat_with_ai(chat_data: ChatMessage):
+    """Process a chat message and return AI response using LangGraph."""
     try:
-        prompts = list(prompt_manager.get_available_prompts().keys())
-        logger.debug(f"Retrieved {len(prompts)} available prompts")
-        return PromptsResponse(prompts=prompts)
+        logger.info(f"Processing chat message for static user: {STATIC_USER_ID}")
+
+        # Get model name
+        model_name = chat_data.prompt_type
+        if model_name in ["simple", "default"]:
+            model_name = "gpt-3.5-turbo"
+
+        # Use graph service to process the message
+        graph_service = get_graph_service()
+        result = await graph_service.process_chat_message(
+            message=chat_data.message,
+            model_name=model_name,
+            session_id=chat_data.thread_id
+        )
+
+        logger.info("Chat message processed successfully with LangGraph")
+        return ChatResponse(
+            response=result.get("response", ""),
+            status="success",
+            prompt_type=model_name,
+            thread_id=chat_data.thread_id,
+            user_id=chat_data.user_id or STATIC_USER_ID
+        )
+
     except Exception as e:
-        logger.error(f"Error retrieving prompts: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve prompts")
+        logger.error(f"Unexpected error in chat endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")

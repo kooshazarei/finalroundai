@@ -2,6 +2,7 @@
 FastAPI application entry point.
 """
 
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -19,11 +20,11 @@ from app.utils import (
 
 def create_application() -> FastAPI:
     """Create and configure the FastAPI application."""
-    
+
     # Setup logging
     setup_logging(level="INFO" if not settings.debug else "DEBUG")
     logger = logging.getLogger("app.main")
-    
+
     # Create FastAPI app
     app = FastAPI(
         title=settings.app_name,
@@ -32,7 +33,7 @@ def create_application() -> FastAPI:
         docs_url="/docs" if settings.debug else None,
         redoc_url="/redoc" if settings.debug else None
     )
-    
+
     # Configure CORS
     app.add_middleware(
         CORSMiddleware,
@@ -41,16 +42,16 @@ def create_application() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
     # Add exception handlers
     app.add_exception_handler(ChatAssistantException, chat_assistant_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(Exception, general_exception_handler)
-    
+
     # Include API routes
     app.include_router(api_router)
-    
+
     logger.info(f"{settings.app_name} v{settings.app_version} initialized")
     return app
 

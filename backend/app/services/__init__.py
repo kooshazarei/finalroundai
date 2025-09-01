@@ -2,10 +2,7 @@
 Services module exports.
 """
 
-from .openai_service import openai_service
-from .chat_service import chat_workflow_service
+from .llm_service import LLMService, create_llm_service
+from .graph_service import GraphService, get_graph_service
 
-__all__ = [
-    "openai_service",
-    "chat_workflow_service"
-]
+__all__ = ["LLMService", "create_llm_service", "GraphService", "get_graph_service"]
