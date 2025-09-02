@@ -10,6 +10,7 @@ A modern, responsive chat application with AI Assistant powered by OpenAI. The a
 - 🐳 Fully containerized with Docker
 - 🚀 Easy deployment and development setup
 - 💬 Clean, intuitive chat interface with Material-UI
+- 📊 AI conversation tracing and monitoring with Langfuse
 
 ## Architecture
 
@@ -17,6 +18,7 @@ A modern, responsive chat application with AI Assistant powered by OpenAI. The a
 - **Frontend**: React TypeScript with Material-UI components
 - **Containerization**: Docker and Docker Compose
 - **API**: RESTful API for chat interactions
+- **Monitoring**: Langfuse integration for AI conversation tracking and analytics
 
 ## Prerequisites
 
@@ -37,6 +39,9 @@ A modern, responsive chat application with AI Assistant powered by OpenAI. The a
    Edit the `.env` file and add your API keys:
    ```
    OPENAI_API_KEY=your_actual_openai_api_key_here
+   LANGFUSE_PUBLIC_KEY=pk-lf-your_public_key_here
+   LANGFUSE_SECRET_KEY=sk-lf-your_secret_key_here
+   LANGFUSE_HOST=https://cloud.langfuse.com
    ```
 
 3. **Build and run with Docker Compose:**
@@ -161,9 +166,49 @@ finalroundai/
 
 ### Required
 - `OPENAI_API_KEY` - Your OpenAI API key
+- `LANGFUSE_PUBLIC_KEY` - Your Langfuse public key (for AI tracing)
+- `LANGFUSE_SECRET_KEY` - Your Langfuse secret key (for AI tracing)
 
 ### Optional
+- `LANGFUSE_HOST` - Langfuse host URL (default: https://cloud.langfuse.com)
 - `REACT_APP_API_URL` - Backend API URL (default: http://localhost:8000)
+
+## AI Monitoring with Langfuse
+
+This application includes comprehensive AI monitoring and tracing using [Langfuse](https://langfuse.com/), an open-source observability platform for AI agents.
+
+### What's Tracked
+
+- **Agent Conversations**: All interactions between the user and the interview agents
+- **Multi-Agent Handoffs**: When the orchestrator delegates to interviewer, evaluator, or topic manager agents
+- **Token Usage**: Track costs and usage across all LLM calls
+- **Response Times**: Monitor latency for each agent interaction
+- **Error Tracking**: Capture and analyze any errors in the agent workflow
+
+### Setting Up Langfuse
+
+1. **Sign up for Langfuse Cloud** (free): https://cloud.langfuse.com/
+   - Or self-host Langfuse: https://langfuse.com/self-hosting
+
+2. **Get your API keys** from the project settings page
+
+3. **Add to your environment variables**:
+   ```bash
+   LANGFUSE_PUBLIC_KEY=pk-lf-your_public_key_here
+   LANGFUSE_SECRET_KEY=sk-lf-your_secret_key_here
+   LANGFUSE_HOST=https://cloud.langfuse.com
+   ```
+
+### Viewing Traces
+
+Once configured, every conversation will automatically create traces in your Langfuse dashboard:
+
+- **Interview Sessions**: Grouped by thread ID for easy tracking
+- **Agent Details**: See which specific agent (orchestrator, interviewer, etc.) handled each interaction
+- **Performance Metrics**: Response times, token counts, and costs
+- **Debug Information**: Full conversation context and agent reasoning
+
+Visit your Langfuse dashboard to explore detailed traces of all AI interactions.
 
 ## Troubleshooting
 

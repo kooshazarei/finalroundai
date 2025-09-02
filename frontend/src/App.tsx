@@ -55,6 +55,9 @@ const App: React.FC = () => {
   const fetchWelcomeMessage = useCallback(async () => {
     if (!threadId) return;
 
+    setIsLoading(true);
+    setCurrentStreamingContent('');
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
@@ -85,9 +88,12 @@ const App: React.FC = () => {
               const data = JSON.parse(line.slice(6));
               if (data.content) {
                 welcomeContent += data.content;
+                setCurrentStreamingContent(welcomeContent);
               }
               if (data.done) {
                 setMessages([{ role: 'assistant', content: welcomeContent }]);
+                setCurrentStreamingContent('');
+                setIsLoading(false);
                 return;
               }
             } catch (e) {
@@ -103,6 +109,8 @@ const App: React.FC = () => {
         role: 'assistant',
         content: "Welcome! I'm ready to start your technical interview. How can I help you today?"
       }]);
+      setCurrentStreamingContent('');
+      setIsLoading(false);
     }
   }, [threadId, API_BASE_URL]);
 
@@ -255,6 +263,7 @@ const App: React.FC = () => {
         setThreadId(data.thread_id);
         setMessages([]);
         setCurrentStreamingContent('');
+        setIsLoading(false);
         console.log('Started new conversation:', data.thread_id);
 
         // Fetch welcome message for new conversation
@@ -266,6 +275,7 @@ const App: React.FC = () => {
       setThreadId('thread-' + Math.random().toString(36).substr(2, 9));
       setMessages([]);
       setCurrentStreamingContent('');
+      setIsLoading(false);
       fetchWelcomeMessage();
     }
   };

@@ -53,6 +53,19 @@ def create_application() -> FastAPI:
     app.include_router(api_router)
 
     logger.info(f"{settings.app_name} v{settings.app_version} initialized")
+
+    # Print startup banner
+    print(f"\n{'='*80}")
+    print(f"🚀 {settings.app_name.upper()} v{settings.app_version}")
+    print(f"{'='*80}")
+    print(f"🔧 Debug Mode: {'ON' if settings.debug else 'OFF'}")
+    print(f"🌐 Host: {settings.host}:{settings.port}")
+    print(f"📝 Docs URL: {'/docs' if settings.debug else 'Disabled'}")
+    print(f"🔄 CORS: {', '.join(settings.allowed_origins)}")
+    print(f"{'='*80}")
+    print("🤖 AI Interview Assistant is ready to start interviews!")
+    print(f"{'='*80}\n")
+
     return app
 
 
