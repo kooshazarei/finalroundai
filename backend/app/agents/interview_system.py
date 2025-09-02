@@ -83,19 +83,15 @@ class InterviewAgentSystem:
     async def process_message_stream(
         self,
         user_message: str,
-        thread_id: str,
-        current_agent: str = "orchestrator"
+        thread_id: str
     ) -> AsyncGenerator[str, None]:
-        """Process message and stream response from the appropriate agent."""
+        """Process message and stream response from the orchestrator agent."""
         try:
             # Get the session for this thread
             session = self._get_session(thread_id)
 
-            # Get the appropriate agent
-            agent = self.orchestrator_agent if current_agent == "orchestrator" else self.interviewer_agent
-
-            # Stream response using the agents library with session
-            result = Runner.run_streamed(agent, user_message, session=session)
+            # Always use orchestrator agent - it will handle handoffs to interviewer as needed
+            result = Runner.run_streamed(self.orchestrator_agent, user_message, session=session)
 
             async for event in result.stream_events():
                 # Stream raw text deltas from the LLM
@@ -109,12 +105,11 @@ class InterviewAgentSystem:
     async def process_message(
         self,
         user_message: str,
-        thread_id: str,
-        current_agent: str = "orchestrator"
+        thread_id: str
     ) -> str:
         """Process message and return complete response."""
         response_parts = []
-        async for chunk in self.process_message_stream(user_message, thread_id, current_agent):
+        async for chunk in self.process_message_stream(user_message, thread_id):
             response_parts.append(chunk)
 
         return "".join(response_parts)
@@ -122,8 +117,11 @@ class InterviewAgentSystem:
     def get_interview_status(self) -> Dict[str, Any]:
         """Get current interview status."""
         return {
-            "agents_available": ["orchestrator", "interviewer"],
-            "status": "active"
+            "total_questions": 10,
+            "features": ["skip", "next"],
+            "agents": ["orchestrator", "interviewer"],
+            "status": "active",
+            "instructions": "Say 'skip' or 'next' to move to the next question. Progress will be shown as 'Question X of 10'."
         }
 
     async def reset_interview(self, thread_id: str):
