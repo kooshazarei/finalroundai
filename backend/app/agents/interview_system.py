@@ -19,6 +19,7 @@ class InterviewAgentSystem:
         self.orchestrator_prompt = self._load_prompt("orchestrator_agent_prompt.txt")
         self.interviewer_prompt = self._load_prompt("interviewer_agent_prompt.txt")
         self.evaluator_prompt = self._load_prompt("evaluator_agent_prompt.txt")
+        self.topic_manager_prompt = self._load_prompt("topic_manager_agent_prompt.txt")
 
         # Load resume and job description
         self.resume_content = self._load_context_file("sample_resume.txt")
@@ -34,6 +35,12 @@ class InterviewAgentSystem:
             model="gpt-4o-mini"
         )
 
+        self.topic_manager_agent = Agent(
+            name="topic_manager",
+            instructions=self.topic_manager_prompt + context_info,
+            model="gpt-4o-mini"
+        )
+
         self.interviewer_agent = Agent(
             name="interviewer",
             instructions=self.interviewer_prompt + context_info,
@@ -44,11 +51,12 @@ class InterviewAgentSystem:
             name="orchestrator",
             instructions=self.orchestrator_prompt + context_info,
             model="gpt-4o-mini",
-            handoffs=[self.interviewer_agent, self.evaluator_agent]
+            handoffs=[self.interviewer_agent, self.evaluator_agent, self.topic_manager_agent]
         )
 
         # Set handoffs after all agents are created
-        self.evaluator_agent.handoffs = [self.orchestrator_agent]
+        self.evaluator_agent.handoffs = [self.orchestrator_agent, self.topic_manager_agent]
+        self.topic_manager_agent.handoffs = [self.orchestrator_agent, self.interviewer_agent]
         self.interviewer_agent.handoffs = [self.orchestrator_agent]
 
     def _load_prompt(self, filename: str) -> str:
@@ -128,7 +136,7 @@ class InterviewAgentSystem:
         return {
             "total_questions": 10,
             "features": ["skip", "next"],
-            "agents": ["orchestrator", "interviewer", "evaluator"],
+            "agents": ["orchestrator", "interviewer", "evaluator", "topic_manager"],
             "status": "active",
             "instructions": "Say 'skip' or 'next' to move to the next question. Progress will be shown as 'Question X of 10'."
         }
