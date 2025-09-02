@@ -18,6 +18,7 @@ class InterviewAgentSystem:
         # Load prompts
         self.orchestrator_prompt = self._load_prompt("orchestrator_agent_prompt.txt")
         self.interviewer_prompt = self._load_prompt("interviewer_agent_prompt.txt")
+        self.evaluator_prompt = self._load_prompt("evaluator_agent_prompt.txt")
 
         # Load resume and job description
         self.resume_content = self._load_context_file("sample_resume.txt")
@@ -25,6 +26,13 @@ class InterviewAgentSystem:
 
         # Create agents with context
         context_info = self._build_context_info()
+
+        # Create agents first without handoffs
+        self.evaluator_agent = Agent(
+            name="evaluator",
+            instructions=self.evaluator_prompt + context_info,
+            model="gpt-4o-mini"
+        )
 
         self.interviewer_agent = Agent(
             name="interviewer",
@@ -36,10 +44,11 @@ class InterviewAgentSystem:
             name="orchestrator",
             instructions=self.orchestrator_prompt + context_info,
             model="gpt-4o-mini",
-            handoffs=[self.interviewer_agent]
+            handoffs=[self.interviewer_agent, self.evaluator_agent]
         )
 
-        # Update interviewer to handoff back to orchestrator
+        # Set handoffs after all agents are created
+        self.evaluator_agent.handoffs = [self.orchestrator_agent]
         self.interviewer_agent.handoffs = [self.orchestrator_agent]
 
     def _load_prompt(self, filename: str) -> str:
@@ -119,7 +128,7 @@ class InterviewAgentSystem:
         return {
             "total_questions": 10,
             "features": ["skip", "next"],
-            "agents": ["orchestrator", "interviewer"],
+            "agents": ["orchestrator", "interviewer", "evaluator"],
             "status": "active",
             "instructions": "Say 'skip' or 'next' to move to the next question. Progress will be shown as 'Question X of 10'."
         }
