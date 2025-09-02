@@ -48,7 +48,8 @@ async def get_interview_status():
 
 
 @router.post("/interview/reset")
-async def reset_interview():
+async def reset_interview(chat_data: ChatMessage):
     """Reset interview session."""
-    interview_system.reset_interview()
+    thread_id = chat_data.thread_id or "default"
+    await interview_system.reset_interview(thread_id)
     return {"message": "Interview reset successfully"}
