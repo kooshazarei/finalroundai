@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 
 interface Message {
@@ -13,7 +13,6 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentStreamingContent, setCurrentStreamingContent] = useState('');
   const [threadId, setThreadId] = useState<string>('');
-  const [userId] = useState<string>('user-' + Math.random().toString(36).substr(2, 9));
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const threadInitializedRef = useRef(false);
 
@@ -52,16 +51,67 @@ const App: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, currentStreamingContent]);
 
-  // Initial welcome message
-  useEffect(() => {
-    // Only show welcome message if we have a thread ID and no messages yet
-    if (threadId && messages.length === 0) {
+  // Initial welcome message from backend
+  const fetchWelcomeMessage = useCallback(async () => {
+    if (!threadId) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: "__INIT__", // Special init message to trigger welcome
+          prompt_type: 'default',
+          thread_id: threadId
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch welcome message');
+
+      const reader = response.body?.getReader();
+      if (!reader) return;
+
+      let welcomeContent = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.content) {
+                welcomeContent += data.content;
+              }
+              if (data.done) {
+                setMessages([{ role: 'assistant', content: welcomeContent }]);
+                return;
+              }
+            } catch (e) {
+              // Ignore parsing errors
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching welcome message:', error);
+      // Fallback to a simple message
       setMessages([{
         role: 'assistant',
-        content: "Hello! I'm your AI Chat Assistant. How can I help you today?"
+        content: "Welcome! I'm ready to start your technical interview. How can I help you today?"
       }]);
     }
-  }, [threadId, messages.length]); // Show welcome when thread is ready and no messages
+  }, [threadId, API_BASE_URL]);
+
+  useEffect(() => {
+    // Only fetch welcome message if we have a thread ID and no messages yet
+    if (threadId && messages.length === 0) {
+      fetchWelcomeMessage();
+    }
+  }, [threadId, messages.length, fetchWelcomeMessage]);
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading || !threadId) return;
@@ -79,8 +129,7 @@ const App: React.FC = () => {
         body: JSON.stringify({
           message: inputMessage,
           prompt_type: 'default',
-          thread_id: threadId,
-          user_id: userId
+          thread_id: threadId
         }),
       });
 
@@ -92,6 +141,31 @@ const App: React.FC = () => {
       const decoder = new TextDecoder();
       let content = '';
 
+      const processDataLine = (line: string) => {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.error) throw new Error(data.error);
+
+            if (data.done) {
+              setMessages(prev => [...prev, { role: 'assistant', content }]);
+              setCurrentStreamingContent('');
+              setIsLoading(false);
+              return true; // Signal completion
+            }
+
+            const newContent = data.content;
+            if (newContent) {
+              content = content + newContent;
+              setCurrentStreamingContent(content);
+            }
+          } catch (e) {
+            console.warn('Failed to parse chunk:', e);
+          }
+        }
+        return false; // Continue processing
+      };
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -100,27 +174,8 @@ const App: React.FC = () => {
         const lines = chunk.split('\n');
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.error) throw new Error(data.error);
-
-              if (data.done) {
-                setMessages(prev => [...prev, { role: 'assistant', content }]);
-                setCurrentStreamingContent('');
-                setIsLoading(false);
-                return;
-              }
-
-              const newContent = data.content;
-              if (newContent) {
-                content += newContent;
-                setCurrentStreamingContent(content);
-              }
-            } catch (e) {
-              console.warn('Failed to parse chunk:', e);
-            }
-          }
+          const isComplete = processDataLine(line);
+          if (isComplete) return;
         }
       }
     } catch (error) {
@@ -198,22 +253,20 @@ const App: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setThreadId(data.thread_id);
-        setMessages([{
-          role: 'assistant',
-          content: "Hello! I'm your AI Chat Assistant. How can I help you today?"
-        }]);
+        setMessages([]);
         setCurrentStreamingContent('');
         console.log('Started new conversation:', data.thread_id);
+
+        // Fetch welcome message for new conversation
+        fetchWelcomeMessage();
       }
     } catch (error) {
       console.error('Failed to start new conversation:', error);
       // Fallback to generating a client-side thread ID
       setThreadId('thread-' + Math.random().toString(36).substr(2, 9));
-      setMessages([{
-        role: 'assistant',
-        content: "Hello! I'm your AI Chat Assistant. How can I help you today?"
-      }]);
+      setMessages([]);
       setCurrentStreamingContent('');
+      fetchWelcomeMessage();
     }
   };
 
@@ -221,14 +274,13 @@ const App: React.FC = () => {
     <div className="app">
       <div className="chat-container">
         <div className="chat-header">
-          <h1>AI Chat Assistant</h1>
+          <h1>AI Interview Assistant</h1>
           <div className="chat-controls">
             <button className="new-conversation-btn" onClick={startNewConversation}>
-              New Conversation
+              New Interview
             </button>
             <div className="chat-info">
-              <span className="info-item">Thread: {threadId.slice(-8)}</span>
-              <span className="info-item">User: {userId.slice(-6)}</span>
+              <span className="info-item">Session: {threadId.slice(-8)}</span>
             </div>
           </div>
         </div>
@@ -273,7 +325,7 @@ const App: React.FC = () => {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Type your message..."
+            placeholder="Type your response... (or say 'next' to skip)"
             disabled={isLoading}
             rows={1}
           />
